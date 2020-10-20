@@ -32,9 +32,12 @@ for isoCode in euroCountryCodes:
     dates = date2num(dateTimes)
 
     plt.plot_date(dates, countryData["total_cases"], "-")
-    plt.plot_date(dates, countryData["new_cases_smoothed"], "-")
+    plt.plot_date(dates, countryData["new_cases_smoothed"]*10, "-")
     plt.xticks(rotation=30, horizontalalignment="right")
     plt.title(countryName)
-    plt.legend(["Total cases", "New cases (7 days smoothed)"])
+    plt.xlabel("Time")  # FIXME: Find out why this doesn't render
+    plt.ylabel("Cases")
+    plt.grid(True, "major", "y", color="grey", linewidth=0.2)
+    plt.legend(["Total cases", "New cases * 10 (7 days smoothed)"])
     plt.savefig("plots/{:s}.png".format(isoCode))
     plt.clf()
