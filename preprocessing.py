@@ -15,7 +15,7 @@ selectedData = euroDataAllColumns[[
     "new_cases",
     "new_cases_smoothed",
     "population",
-    "total_tests",
+    "total_tests",  # There are holes in the data relating to number of tests
     "new_tests",
     "new_tests_smoothed",
 
