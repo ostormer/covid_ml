@@ -1,9 +1,12 @@
 import pandas as pd
 from numpy import zeros, ones
+from numpy.random import choice
 from json import dump
 from datetime import date, timedelta
+from math import floor
 
-fullDataSet = pd.read_csv("data/owid-covid-data_2020-10-29.csv")
+
+fullDataSet = pd.read_csv("../data/owid-covid-data_2020-10-29.csv")
 
 euroCountryCodes = fullDataSet[fullDataSet["continent"] == "Europe"].iso_code.unique()
 euroDataAllColumns = fullDataSet[fullDataSet["iso_code"].isin(euroCountryCodes)]
@@ -16,15 +19,15 @@ selectedData = euroDataAllColumns[[
     "new_cases_smoothed",
     "population",
     "total_tests",  # There are holes in the data relating to number of tests
-    "new_tests",
-    "new_tests_smoothed",
+    "new_tests",  # See above ^
+    "new_tests_smoothed",  # See above ^^
 
 ]]
 # Keep only data on european mainland countries with pop > 600 000
 
 largeCountryData = selectedData[selectedData["population"] > 600000]
-# List of countries to exclude due to them being islands
-excludedCountryCodes = ["CYP", "GBR", "IRL", "ISL", "MLT"]
+# List of countries to exclude due to them being islands or have bad data
+excludedCountryCodes = ["CYP", "GBR", "IRL", "ISL", "MLT", "LUX", "OWID_KOS"]
 mainLandData = largeCountryData[~largeCountryData["iso_code"].isin(excludedCountryCodes)]
 
 isoCountryCodes = [code for code in mainLandData["iso_code"].unique()]
@@ -63,11 +66,59 @@ for isoCode in isoCountryCodes:
         mainLandData = mainLandData.append(padding)
 
 euroData = mainLandData.sort_values(by=["iso_code", "date"])
-euroData.reset_index(drop=True)
+euroData = euroData.reset_index(drop=True)
+euroData.to_csv("../data/euro_countries_padded.csv")
+
+# Fill in missing dates
+newData = euroData.copy()
+
+previousDate = date.fromisoformat("2020-12-31")
+previousRow = None
+for index, row in euroData.iterrows():
+    thisDate = date.fromisoformat(row["date"])
+    if previousRow is not None and previousRow["iso_code"] == row["iso_code"]:
+        if thisDate - previousDate > timedelta(days=1):
+            # There is a hole in the data that needs to be filled
+            nMissingDates = (thisDate - previousDate).days
+            for d in range(nMissingDates - 1):
+                dateToAdd = previousDate + timedelta(days=1+d)
+                newRow = row.copy(deep=True)
+                newRow["date"] = dateToAdd.isoformat()
+                newRow["new_cases"] = 0
+                newRow["new_tests"] = 0
+                newData = newData.append(newRow, ignore_index=True)
+
+    previousDate = thisDate
+    previousRow = row
+
+sortedData = newData.copy().sort_values(by=["iso_code", "date"])
+sortedData = sortedData.reset_index(drop=True)
+
+# Add latitude and longitude
+geoData = pd.read_csv("../data/countries_codes_and_coordinates.csv")
+geoDict = {}
+for index, row in geoData.iterrows():
+    code = row["Alpha-3 code"].strip("\" ")
+    geoDict[code] = {
+        "latitude": row["Latitude (average)"],
+        "longitude": row["Longitude (average)"]
+    }
+
+sortedData["latitude"] = sortedData.apply(lambda row: geoDict[row["iso_code"]]["latitude"].strip("\" "), axis=1)
+sortedData["longitude"] = sortedData.apply(lambda row: geoDict[row["iso_code"]]["longitude"].strip("\" "), axis=1)
 
 # Save preprocessed data set to csv file
-euroData.to_csv("data/euro_countries_padded.csv")
+sortedData.to_csv("../data/euro_countries_filled.csv")
 
 # Save list of ISO coutry codes to json file
-with open("data/iso_country_codes.json", "w") as write_file:
+with open("../data/iso_country_codes.json", "w") as write_file:
     dump(isoCountryCodes, write_file)
+
+# Split countries into training and test data
+train_codes = [code for code in choice(isoCountryCodes, floor(len(isoCountryCodes) * 0.75), replace=False)]
+train_codes.sort()
+test_codes = [code for code in isoCountryCodes if code not in train_codes]
+test_codes.sort()
+
+with open("../data/train_test_codes.json", "w") as write_file:
+    dump((train_codes, test_codes), write_file)
