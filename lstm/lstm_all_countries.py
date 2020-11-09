@@ -1,9 +1,10 @@
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 import json
-from datetime import date
-from numpy import array
 import matplotlib.pyplot as plt
+from datetime import date
+from numpy import concatenate
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_error
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
@@ -34,8 +35,7 @@ def series_to_in_out_pairs(data, n_in=1, n_out=1, leave_cols=[]):
     if len(leave_cols) > 0:
         aggregated[leave_cols] = data[leave_cols]
         # reorder so leave_cols are first
-        new_order = []
-        [new_order.append(col) for col in aggregated.columns if col in leave_cols]
+        new_order = [col for col in leave_cols]
         [new_order.append(col) for col in aggregated.columns if col not in leave_cols]
         aggregated = aggregated[new_order]
     return aggregated
@@ -63,17 +63,16 @@ euro_data = euro_data[euro_data["date"] < date_to_number("2020-10-28")]
 euro_data["new_smooth_per_mill"] = euro_data.apply(lambda row: compute_new_smoothed_cases_per_million(row), axis=1)
 
 # Scale chosen features
-forecast_columns = ["new_smooth_per_mill", "latitude", "longitude", "date", "iso_code"]
-scale_columns = ["new_smooth_per_mill", "latitude", "longitude", "date"]
+forecast_columns = ["date", "latitude", "longitude", "new_smooth_per_mill", "iso_code"]
+scale_columns = ["date", "latitude", "longitude", "new_smooth_per_mill"]
 forecast_data = euro_data[forecast_columns].copy(deep=True)
 scaler = MinMaxScaler(feature_range=(0, 1))
 forecast_data[scale_columns] = scaler.fit_transform(forecast_data[scale_columns])
 
-forecast_data = series_to_in_out_pairs(forecast_data, n_in=7, n_out=1, leave_cols=["latitude", "longitude", "date", "iso_code"])
-print("\n\n", forecast_data, "\n\n")
+forecast_data = series_to_in_out_pairs(forecast_data, n_in=7, n_out=1, leave_cols=["date", "latitude", "longitude", "iso_code"])
 
 
-def date_scaling(d): return (date_to_number(d) - scaler.data_min_[3]) / (scaler.data_max_[3] - scaler.data_min_[3])
+def date_scaling(d): return (date_to_number(d) - scaler.data_min_[0]) / (scaler.data_max_[0] - scaler.data_min_[0])
 
 
 # All countries have data from 2019-12-31 to 2020-10-27.
@@ -99,10 +98,9 @@ n_single_features = 3
 n_obs = n_lag_days * n_daily_features + n_single_features  # 10 in this case
 
 train_x, train_y = train[:, : n_obs], train[:, -1]
-test_x, test_y = test[:, : -1], test[:, -1]
+test_x, test_y = test[:, : n_obs], test[:, -1]
 train_x = train_x.reshape(train_x.shape[0], 1, train_x.shape[1])
 test_x = test_x.reshape(test_x.shape[0], 1, test_x.shape[1])
-print(train_x.shape, train_y.shape, test_x.shape, train_y.shape)
 # Define a model
 model = Sequential()
 model.add(LSTM(64, input_shape=(train_x.shape[1], train_x.shape[2])))
@@ -122,24 +120,38 @@ history = model.fit(
 plt.plot(history.history['loss'], label='train')
 plt.plot(history.history['val_loss'], label='test')
 plt.legend()
-plt.show()
+plt.savefig("training_loss.png")
 
+# model2 = Sequential()
+# model2.add(Dense(50, input_shape=(train_x.shape[1], train_x.shape[2]), activation="relu"))
+# model2.add(Dense(20, activation="relu"))
+# model2.add(Dense(1, activation="relu"))
+# model2.compile(loss="mae", optimizer="adam")
+# history2 = model2.fit(
+#     train_x,
+#     train_y,
+#     epochs=100,
+#     batch_size=235,
+#     validation_data=(test_x, test_y),
+#     verbose=2,
+#     shuffle=False
+# )
+# plt.plot(history2.history['loss'], label='train')
+# plt.plot(history2.history['val_loss'], label='test')
+# plt.legend()
+# plt.show()
 
-model2 = Sequential()
-model2.add(Dense(50, input_shape=(train_x.shape[1], train_x.shape[2]), activation="relu"))
-model2.add(Dense(20, activation="relu"))
-model2.add(Dense(1, activation="relu"))
-model2.compile(loss="mae", optimizer="adam")
-history2 = model2.fit(
-    train_x,
-    train_y,
-    epochs=100,
-    batch_size=235,
-    validation_data=(test_x, test_y),
-    verbose=2,
-    shuffle=False
-)
-plt.plot(history2.history['loss'], label='train')
-plt.plot(history2.history['val_loss'], label='test')
-plt.legend()
-plt.show()
+# Evaluate model
+scaled_prediction = model.predict(test_x)
+test_x = test_x.reshape((test_x.shape[0], test_x.shape[2]))
+scaled_prediction = concatenate((test_x[:, 0:3], scaled_prediction), axis=1)
+prediction = scaler.inverse_transform(scaled_prediction)
+y_hat = prediction[:, -1]
+
+actual_test = test_y.reshape((len(test_y), 1))
+actual_test = concatenate((test_x[:, 0:3], actual_test), axis=1)
+actual_test = scaler.inverse_transform(actual_test)
+y = actual_test[:, -1]
+
+mae = mean_absolute_error(y_hat, y)
+print("MAE: ", mae)
