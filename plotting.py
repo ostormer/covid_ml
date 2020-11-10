@@ -20,7 +20,7 @@ for isoCode in countryCodes:
     plt.plot_date(dates, countryData["new_cases_smoothed"]*10, "-")
     plt.xticks(rotation=30, horizontalalignment="right")
     plt.title(countryName)
-    plt.xlabel("Time")  # FIXME: Find out why this doesn't render
+    plt.xlabel("Time")  # Dpes not render because it is pushed below the frame by the dates
     plt.ylabel("Cases")
     plt.grid(True, "major", "y", color="grey", linewidth=0.2)
     plt.legend(["Total cases", "New cases * 10 (7 days smoothed)"])
