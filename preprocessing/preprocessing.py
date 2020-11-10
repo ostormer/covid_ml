@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from math import floor
 
 
-fullDataSet = pd.read_csv("../data/owid-covid-data_2020-10-29.csv")
+fullDataSet = pd.read_csv("../data/owid-covid-data_2020-11-10.csv")
 
 euroCountryCodes = fullDataSet[fullDataSet["continent"] == "Europe"].iso_code.unique()
 euroDataAllColumns = fullDataSet[fullDataSet["iso_code"].isin(euroCountryCodes)]
