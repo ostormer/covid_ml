@@ -1,5 +1,5 @@
 from numpy.random import seed
-seed(3)
+seed(5)
 from tensorflow import random as tf_random
 tf_random.set_seed(4)
 
@@ -72,11 +72,10 @@ raw_euro_data = pd.read_csv("../data/euro_countries_filled.csv", index_col=0)
 euro_data = raw_euro_data.copy(deep=True)
 euro_data["date"] = euro_data["date"].apply(date_to_number)
 euro_data = euro_data[euro_data["date"] <= date_to_number(end_date)]
-# euro_data["new_smooth_per_mill"] = euro_data.apply(lambda row: compute_new_smoothed_cases_per_million(row), axis=1)
 
 # Scale chosen features
-forecast_columns = ["date", "latitude", "longitude", "population", "new_cases", "iso_code"]
-scale_columns = ["date", "latitude", "longitude", "population", "new_cases"]
+forecast_columns = ["date", "latitude", "longitude", "population", "new_cases_smoothed", "iso_code"]
+scale_columns = ["date", "latitude", "longitude", "population", "new_cases_smoothed"]
 forecast_data = euro_data[forecast_columns].copy(deep=True)
 scaler = MinMaxScaler(feature_range=(0, 1))
 forecast_data[scale_columns] = scaler.fit_transform(forecast_data[scale_columns])
@@ -92,8 +91,6 @@ def invert_date_scaling(s):
     return number_to_datetime(s * (scaler.data_max_[0] - scaler.data_min_[0]) + scaler.data_min_[0])
 
 
-# All countries have data from 2019-12-31 to 2020-10-27.
-# The first 7 have nan values due to series_to_in_out_pairs()
 # We remove all observations before march.
 # Europe's habits have changed since before march 2020, newer data is more interesting
 # I choose the period from 2020-03-01 to 2020-10-27, that is 241 days
@@ -123,12 +120,12 @@ test_x = test_x.reshape(test_x.shape[0], 1, test_x.shape[1])
 model = Sequential()
 model.add(LSTM(64, input_shape=(train_x.shape[1], train_x.shape[2])))
 model.add(Dense(1))
-model.compile(loss="mse", optimizer="adamax")
+model.compile(loss="mse", optimizer="adam")
 # Fit network
 history = model.fit(
     train_x,
     train_y,
-    epochs=50,
+    epochs=100,
     batch_size=date_to_number(end_date) - date_to_number(start_date) + 1,
     validation_data=(test_x, test_y),
     verbose=2,
@@ -159,14 +156,14 @@ print("\nTest-set 1 step ahead MAE: {:.3f}\n".format(mae))
 
 # Evaluate on aggregated set for all of Europe for first week of november
 euro_mean_data = forecast_data.groupby("date")[["latitude", "longitude"]].mean().reset_index()
-euro_sum_cols = ["population", "new_cases_(t-7)",
-                 "new_cases_(t-6)",
-                 "new_cases_(t-5)",
-                 "new_cases_(t-4)",
-                 "new_cases_(t-3)",
-                 "new_cases_(t-2)",
-                 "new_cases_(t-1)",
-                 "new_cases_(t+0)"]
+euro_sum_cols = ["population", "new_cases_smoothed_(t-7)",
+                 "new_cases_smoothed_(t-6)",
+                 "new_cases_smoothed_(t-5)",
+                 "new_cases_smoothed_(t-4)",
+                 "new_cases_smoothed_(t-3)",
+                 "new_cases_smoothed_(t-2)",
+                 "new_cases_smoothed_(t-1)",
+                 "new_cases_smoothed_(t+0)"]
 euro_sum_data = forecast_data.groupby("date")[euro_sum_cols].sum().reset_index()
 agg_euro_data = pd.concat([euro_mean_data, euro_sum_data], axis=1)
 agg_euro_data = agg_euro_data[["date", "latitude", "longitude"] + euro_sum_cols]
@@ -207,11 +204,11 @@ pred_x = predicted_euro_values[:, 0].reshape(n_pred_steps)
 pred_y = predicted_euro_values[:, n_single_features].reshape(n_pred_steps)
 pred_dates = [number_to_datetime(round(x)) for x in pred_x]
 
-recent_agg = raw_euro_data.groupby("date")["new_cases"].sum().reset_index()
+recent_agg = raw_euro_data.groupby("date")["new_cases_smoothed"].sum().reset_index()
 recent_agg = recent_agg[recent_agg["date"] >= "2020-10-17"]
 recent_agg = recent_agg[recent_agg["date"] <= "2020-11-07"]
 recent_dates = [datetime.fromisoformat(d) for d in recent_agg[["date"]].values.flatten()]
-recent_agg_y = recent_agg[["new_cases"]].values.flatten()
+recent_agg_y = recent_agg[["new_cases_smoothed"]].values.flatten()
 
 plt.clf()
 
@@ -275,7 +272,7 @@ for code in iso_codes:
         recent_history = recent_history[recent_history["date"] >= "2020-10-17"]
         recent_history = recent_history[recent_history["date"] <= "2020-11-07"]
 
-        recent_y = recent_history["new_cases"].values
+        recent_y = recent_history["new_cases_smoothed"].values
 
         country_mae = mean_absolute_error(recent_y[-7:], pred_y)
         print("{:s} 7-days-ahead MAE: {:.2f}".format(code, country_mae))
