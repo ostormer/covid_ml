@@ -228,7 +228,6 @@ plt.clf()
 
 lstm_predictions = pd.DataFrame()
 lstm_predictions["date"] = pred_dates
-lstm_predictions["lstm_euro_simple"] = pred_y
 # Plot 7 steps ahead forecast for chosen countries and sum of all countries
 euro_sum_y = zeros(7)
 for code in iso_codes:
@@ -300,9 +299,10 @@ plt.title("Sum of european predictions")
 plt.xlabel("Time")  # Doesn't render because it is pushed below the picture by the dates
 plt.ylabel("Cases")
 plt.grid(True, "major", "y", color="grey", linewidth=0.2)
-plt.legend(["New cases (7-days smoothed)", "7 days ahead forecast from "])
+plt.legend(["New cases (7-days smoothed)", "Recursive 7-day forecast"])
 plt.savefig("plots/EUROPE_sum.png")
 plt.clf()
 
 lstm_predictions["lstm_euro_sum"] = euro_sum_y
 lstm_predictions.to_pickle("../lstm_predictions/lstm_predictions.pkl")
+lstm_predictions.to_csv("../lstm_predictions/lstm_predictions.csv")
