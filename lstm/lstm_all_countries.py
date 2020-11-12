@@ -1,13 +1,19 @@
+from numpy.random import seed
+seed(5)
+from tensorflow import random as tf_random
+tf_random.set_seed(4)
+
 import pandas as pd
 import json
 import matplotlib.pyplot as plt
 from datetime import date, datetime, timedelta
-from numpy import concatenate
+from numpy import concatenate, zeros
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
+
 
 def series_to_in_out_pairs(data, n_in=1, n_out=1, leave_cols=[]):
     """
@@ -66,7 +72,6 @@ raw_euro_data = pd.read_csv("../data/euro_countries_filled.csv", index_col=0)
 euro_data = raw_euro_data.copy(deep=True)
 euro_data["date"] = euro_data["date"].apply(date_to_number)
 euro_data = euro_data[euro_data["date"] <= date_to_number(end_date)]
-# euro_data["new_smooth_per_mill"] = euro_data.apply(lambda row: compute_new_smoothed_cases_per_million(row), axis=1)
 
 # Scale chosen features
 forecast_columns = ["date", "latitude", "longitude", "population", "new_cases_smoothed", "iso_code"]
@@ -86,8 +91,6 @@ def invert_date_scaling(s):
     return number_to_datetime(s * (scaler.data_max_[0] - scaler.data_min_[0]) + scaler.data_min_[0])
 
 
-# All countries have data from 2019-12-31 to 2020-10-27.
-# The first 7 have nan values due to series_to_in_out_pairs()
 # We remove all observations before march.
 # Europe's habits have changed since before march 2020, newer data is more interesting
 # I choose the period from 2020-03-01 to 2020-10-27, that is 241 days
@@ -96,7 +99,7 @@ forecast_data = forecast_data[forecast_data["date"] <= date_scaling(end_date)]
 
 train_df = forecast_data[forecast_data["iso_code"].isin(train_codes)]
 test_df = forecast_data[forecast_data["iso_code"].isin(test_codes)]
-# After split into training and test data we no longer need iso_code
+# After split into training and validation data we no longer need iso_code
 train_df = train_df.drop(columns=["iso_code"])
 test_df = test_df.drop(columns=["iso_code"])
 train = train_df.values
@@ -117,7 +120,7 @@ test_x = test_x.reshape(test_x.shape[0], 1, test_x.shape[1])
 model = Sequential()
 model.add(LSTM(64, input_shape=(train_x.shape[1], train_x.shape[2])))
 model.add(Dense(1))
-model.compile(loss="mae", optimizer="adam")
+model.compile(loss="mse", optimizer="adam")
 # Fit network
 history = model.fit(
     train_x,
@@ -131,7 +134,7 @@ history = model.fit(
 # Plot history
 plt.plot(history.history['loss'], label='train')
 plt.plot(history.history['val_loss'], label='test')
-plt.legend()
+plt.legend(["Training loss", "Validation loss"])
 plt.savefig("training_loss.png")
 
 # Evaluate model
@@ -205,27 +208,30 @@ recent_agg = raw_euro_data.groupby("date")["new_cases_smoothed"].sum().reset_ind
 recent_agg = recent_agg[recent_agg["date"] >= "2020-10-17"]
 recent_agg = recent_agg[recent_agg["date"] <= "2020-11-07"]
 recent_dates = [datetime.fromisoformat(d) for d in recent_agg[["date"]].values.flatten()]
-recent_y = recent_agg[["new_cases_smoothed"]].values.flatten()
+recent_agg_y = recent_agg[["new_cases_smoothed"]].values.flatten()
 
 plt.clf()
 
-euro_mae = mean_absolute_error(recent_y[-7:], pred_y)
-print("Whole Europe 7-days-ahead MAE: {:.2f}".format(euro_mae))
+euro_mae = mean_absolute_error(recent_agg_y[-7:], pred_y)
+print("Europe forecast as a country 7-days-ahead MAE: {:.2f}".format(euro_mae))
 
-plt.plot_date(recent_dates, recent_y, "r.-")
+plt.plot_date(recent_dates, recent_agg_y, "r.-")
 plt.plot_date(pred_dates, pred_y, "b.-")
 plt.xticks(rotation=20, horizontalalignment="right")
 plt.title("Europe")
 plt.xlabel("Time")  # Doesn't render because it is pushed below the picture by the dates
 plt.ylabel("Cases")
 plt.grid(True, "major", "y", color="grey", linewidth=0.2)
-plt.legend(["New cases (7-days smoothed)", "7 days ahead forecast from "])
+plt.legend(["New cases (7-days smoothed)", "Recursive 7-days forecast"])
 plt.savefig("plots/EUROPE")
 plt.clf()
 
-# Plot 7 steps ahead forecast for chosen countries.
-
-for code in ["DEU", "NOR", "SWE", "BEL"]:  # Also added Belgium, as its prediction looks suspiciously bad
+lstm_predictions = pd.DataFrame()
+lstm_predictions["date"] = pred_dates
+lstm_predictions["lstm_euro_simple"] = pred_y
+# Plot 7 steps ahead forecast for chosen countries and sum of all countries
+euro_sum_y = zeros(7)
+for code in iso_codes:
     country_data = forecast_data[forecast_data["iso_code"] == code]
     country_data = country_data.drop(columns=["iso_code"])
 
@@ -260,24 +266,43 @@ for code in ["DEU", "NOR", "SWE", "BEL"]:  # Also added Belgium, as its predicti
     pred_y = predicted_values[:, n_single_features].reshape(n_pred_steps)
     pred_dates = [number_to_datetime(round(x)) for x in pred_x]
 
-    recent_history = raw_euro_data[raw_euro_data["iso_code"] == code]
-    recent_history = recent_history[recent_history["date"] >= "2020-10-17"]
-    recent_history = recent_history[recent_history["date"] <= "2020-11-07"]
-    recent_history["date"] = recent_history["date"].apply(lambda d: datetime.fromisoformat(d))
+    euro_sum_y += pred_y
+    if code in ["DEU", "ESP", "NOR"]:
+        recent_history = raw_euro_data[raw_euro_data["iso_code"] == code]
+        recent_history = recent_history[recent_history["date"] >= "2020-10-17"]
+        recent_history = recent_history[recent_history["date"] <= "2020-11-07"]
 
-    recent_dates = recent_history["date"].values
-    recent_y = recent_history["new_cases_smoothed"].values
+        recent_y = recent_history["new_cases_smoothed"].values
 
-    country_mae = mean_absolute_error(recent_y[-7:], pred_y)
-    print("{:s} 7-days-ahead MAE: {:.2f}".format(code, country_mae))
+        country_mae = mean_absolute_error(recent_y[-7:], pred_y)
+        print("{:s} 7-days-ahead MAE: {:.2f}".format(code, country_mae))
 
-    plt.plot_date(recent_dates, recent_y, "r.-")
-    plt.plot_date(pred_dates, pred_y, "b.-")
-    plt.xticks(rotation=20, horizontalalignment="right")
-    plt.title(code)
-    plt.xlabel("Time")  # Doesn't render because it is pushed below the picture by the dates
-    plt.ylabel("Cases")
-    plt.grid(True, "major", "y", color="grey", linewidth=0.2)
-    plt.legend(["New cases (7-days smoothed)", "7 days ahead forecast from "])
-    plt.savefig("plots/{:s}.png".format(code))
-    plt.clf()
+        plt.plot_date(recent_dates, recent_y, "r.-")
+        plt.plot_date(pred_dates, pred_y, "b.-")
+        plt.xticks(rotation=20, horizontalalignment="right")
+        plt.title(code)
+        plt.xlabel("Time")  # Doesn't render because it is pushed below the picture by the dates
+        plt.ylabel("Cases")
+        plt.grid(True, "major", "y", color="grey", linewidth=0.2)
+        plt.legend(["New cases (7-days smoothed)", "Recursive 7-day forecast"])
+        plt.savefig("plots/{:s}.png".format(code))
+        plt.clf()
+
+        lstm_predictions["lstm_{:s}".format(code)] = pred_y
+
+euro_sum_mae = mean_absolute_error(recent_agg_y[-7:], euro_sum_y)
+print("Sum of European countries 7-days-ahead MAE: {:.2f}".format(euro_sum_mae))
+
+plt.plot_date(recent_dates, recent_agg_y, "r.-")
+plt.plot_date(pred_dates, euro_sum_y, "b.-")
+plt.xticks(rotation=20, horizontalalignment="right")
+plt.title("Sum of european predictions")
+plt.xlabel("Time")  # Doesn't render because it is pushed below the picture by the dates
+plt.ylabel("Cases")
+plt.grid(True, "major", "y", color="grey", linewidth=0.2)
+plt.legend(["New cases (7-days smoothed)", "7 days ahead forecast from "])
+plt.savefig("plots/EUROPE_sum.png")
+plt.clf()
+
+lstm_predictions["lstm_euro_sum"] = euro_sum_y
+lstm_predictions.to_pickle("../lstm_predictions/lstm_predictions.pkl")
