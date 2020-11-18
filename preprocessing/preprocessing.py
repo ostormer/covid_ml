@@ -1,10 +1,13 @@
 import pandas as pd
-from numpy import zeros, ones
+from numpy import zeros, ones, insert
 from numpy.random import choice
 from json import dump
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, time
+from backports.datetime_fromisoformat import MonkeyPatch
 from math import floor
+from scipy.integrate import cumtrapz
 
+MonkeyPatch.patch_fromisoformat()
 
 fullDataSet = pd.read_csv("../data/owid-covid-data_2020-11-10.csv")
 
@@ -107,8 +110,25 @@ for index, row in geoData.iterrows():
 sortedData["latitude"] = sortedData.apply(lambda row: geoDict[row["iso_code"]]["latitude"].strip("\" "), axis=1)
 sortedData["longitude"] = sortedData.apply(lambda row: geoDict[row["iso_code"]]["longitude"].strip("\" "), axis=1)
 
+# Fill in missing test values using interpolation
+groupedData = [group[1] for group in sortedData.groupby('iso_code')]
+interpolatedData = pd.DataFrame()
+for series in groupedData:
+    # Fill NaNs up until first non-NaN value with 0
+    series = series.interpolate('zero', fill_value=0, limit_direction='backward')
+    # Then interpolate
+    interpolatedData = interpolatedData.append(series.interpolate(method='polynomial', order=3))
+
+# Fill in missing total tests in Sweden and France by integrating
+integratedData = interpolatedData.groupby('iso_code').filter(lambda x: x['iso_code'].iloc[0] in ['SWE', 'FRA'])
+integratedData = integratedData.fillna(method='ffill').fillna(value=0)
+integratedData = [group[1] for group in integratedData.groupby('iso_code')]
+for i in range(len(integratedData)):
+    integratedData[i]['total_tests'] = insert(cumtrapz(integratedData[i]['new_tests']), 0, 0)
+    interpolatedData.update(integratedData[i])
+
 # Save preprocessed data set to csv file
-sortedData.to_csv("../data/euro_countries_filled.csv")
+interpolatedData.to_csv("../data/euro_countries_filled.csv")
 
 # Save list of ISO coutry codes to json file
 with open("../data/iso_country_codes.json", "w") as write_file:
