@@ -12,8 +12,6 @@ data = data[["date", "iso_code", "stringency_index"]]
 # data = data[data["date"] >= "2020-03-01"]
 # data = data[data["date"] <= "2020-10-31"]
 
-data.info()
-
 for code in euro_codes:
     country_data = data[data["iso_code"] == code]
     plt.clf()

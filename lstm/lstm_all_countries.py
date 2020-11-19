@@ -1,7 +1,7 @@
 from numpy.random import seed
-seed(5)
+seed(1)
 from tensorflow import random as tf_random
-tf_random.set_seed(4)
+tf_random.set_seed(1)
 
 import pandas as pd
 import json
@@ -74,13 +74,13 @@ euro_data["date"] = euro_data["date"].apply(date_to_number)
 euro_data = euro_data[euro_data["date"] <= date_to_number(end_date)]
 
 # Scale chosen features
-forecast_columns = ["date", "latitude", "longitude", "population", "new_cases_smoothed", "iso_code"]
-scale_columns = ["date", "latitude", "longitude", "population", "new_cases_smoothed"]
+forecast_columns = ["date", "latitude", "longitude", "population", "stringency_index", "new_cases_smoothed", "iso_code"]
+scale_columns = ["date", "latitude", "longitude", "population", "stringency_index", "new_cases_smoothed"]
 forecast_data = euro_data[forecast_columns].copy(deep=True)
 scaler = MinMaxScaler(feature_range=(0, 1))
 forecast_data[scale_columns] = scaler.fit_transform(forecast_data[scale_columns])
 
-forecast_data = series_to_in_out_pairs(forecast_data, n_in=7, n_out=1, leave_cols=["date", "latitude", "longitude", "population", "iso_code"])
+forecast_data = series_to_in_out_pairs(forecast_data, n_in=7, n_out=1, leave_cols=["date", "latitude", "longitude", "population", "stringency_index", "iso_code"])
 
 
 def date_scaling(d):
@@ -108,7 +108,7 @@ test = test_df.values
 
 n_lag_days = 7
 n_daily_features = 1
-n_single_features = 4
+n_single_features = 5
 n_obs = n_lag_days * n_daily_features + n_single_features  # 11 in this case
 
 train_x, train_y = train[:, : n_obs], train[:, -1]
@@ -155,7 +155,7 @@ mae = mean_absolute_error(y_hat, y)
 print("\nTest-set 1 step ahead MAE: {:.3f}\n".format(mae))
 
 # Evaluate on aggregated set for all of Europe for first week of november
-euro_mean_data = forecast_data.groupby("date")[["latitude", "longitude"]].mean().reset_index()
+euro_mean_data = forecast_data.groupby("date")[["latitude", "longitude", "stringency_index"]].mean().reset_index()
 euro_sum_cols = ["population", "new_cases_smoothed_(t-7)",
                  "new_cases_smoothed_(t-6)",
                  "new_cases_smoothed_(t-5)",

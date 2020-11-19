@@ -75,7 +75,6 @@ euroData = euroData.reset_index(drop=True)
 
 # Fill stringency index, assuming it was 0 in the end of 2019
 firstRowsAllCountriesIndex = euroData[euroData["date"] == "2019-12-31"].index
-print(firstRowsAllCountriesIndex)
 for i in firstRowsAllCountriesIndex:
     euroData["stringency_index"].iloc[i] = 0  # Set stringency index to 0 for 2019-12-31 for all countries
 euroData[["stringency_index"]] = euroData[["stringency_index"]].fillna(method="ffill")
