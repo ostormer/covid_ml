@@ -137,6 +137,9 @@ for i in range(len(integratedData)):
     integratedData[i]['total_tests'] = insert(cumtrapz(integratedData[i]['new_tests']), 0, 0)
     interpolatedData.update(integratedData[i])
 
+# Drop remaining countries with no test data
+interpolatedData = interpolatedData.dropna(subset=['new_tests', 'total_tests'])
+
 # Save preprocessed data set to csv file
 interpolatedData.to_csv("../data/euro_countries_filled.csv")
 
