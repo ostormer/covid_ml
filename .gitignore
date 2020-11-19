@@ -1,3 +1,4 @@
 # Pycharm IDE files
 .idea
 .ipynb_checkpoints/
+preprocessing/stringency_plots/*

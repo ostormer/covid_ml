@@ -24,13 +24,14 @@ selectedData = euroDataAllColumns[[
     "total_tests",  # There are holes in the data relating to number of tests
     "new_tests",  # See above ^
     "new_tests_smoothed",  # See above ^^
-
+    "stringency_index",
 ]]
 # Keep only data on european mainland countries with pop > 600 000
 
 largeCountryData = selectedData[selectedData["population"] > 600000]
-# List of countries to exclude due to them being islands or have bad data
-excludedCountryCodes = ["CYP", "GBR", "IRL", "ISL", "MLT", "LUX", "OWID_KOS"]
+# List of countries to exclude due to them being islands or including negative case data
+# Some are excluded due to not having stringency_index reported
+excludedCountryCodes = ["CYP", "GBR", "IRL", "ISL", "MLT", "LUX", "OWID_KOS", "MNE", "MKD"]
 mainLandData = largeCountryData[~largeCountryData["iso_code"].isin(excludedCountryCodes)]
 
 isoCountryCodes = [code for code in mainLandData["iso_code"].unique()]
@@ -63,13 +64,23 @@ for isoCode in isoCountryCodes:
             "population": ones(paddingLength) * population,
             "total_tests": zeros(paddingLength),
             "new_tests": zeros(paddingLength),
-            "new_tests_smoothed": zeros(paddingLength)
+            "new_tests_smoothed": zeros(paddingLength),
+            "stringency_index": zeros(paddingLength)  # Assuming no measures were taken before COVID cases were reported
         }
         padding = pd.DataFrame(paddingDict)
         mainLandData = mainLandData.append(padding)
 
 euroData = mainLandData.sort_values(by=["iso_code", "date"])
 euroData = euroData.reset_index(drop=True)
+
+# Fill stringency index, assuming it was 0 in the end of 2019
+firstRowsAllCountriesIndex = euroData[euroData["date"] == "2019-12-31"].index
+print(firstRowsAllCountriesIndex)
+for i in firstRowsAllCountriesIndex:
+    euroData["stringency_index"].iloc[i] = 0  # Set stringency index to 0 for 2019-12-31 for all countries
+euroData[["stringency_index"]] = euroData[["stringency_index"]].fillna(method="ffill")
+
+
 euroData.to_csv("../data/euro_countries_padded.csv")
 
 # Fill in missing dates
