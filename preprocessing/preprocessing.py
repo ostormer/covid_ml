@@ -17,7 +17,6 @@ selectedData = euroDataAllColumns[[
     "iso_code",
     "location",
     "date",
-    "total_cases",
     "new_cases",
     "new_cases_smoothed",
     "population",
@@ -58,7 +57,6 @@ for isoCode in isoCountryCodes:
             "iso_code": [isoCode] * paddingLength,
             "location": [location] * paddingLength,
             "date": dates,
-            "total_cases": zeros(paddingLength),
             "new_cases": zeros(paddingLength),
             "new_cases_smoothed": zeros(paddingLength),
             "population": ones(paddingLength) * population,
@@ -78,9 +76,6 @@ firstRowsAllCountriesIndex = euroData[euroData["date"] == "2019-12-31"].index
 for i in firstRowsAllCountriesIndex:
     euroData["stringency_index"].iloc[i] = 0  # Set stringency index to 0 for 2019-12-31 for all countries
 euroData[["stringency_index"]] = euroData[["stringency_index"]].fillna(method="ffill")
-
-
-euroData.to_csv("../data/euro_countries_padded.csv")
 
 # Fill in missing dates
 newData = euroData.copy()
@@ -129,6 +124,7 @@ for series in groupedData:
     # Then interpolate
     interpolatedData = interpolatedData.append(series.interpolate(method='polynomial', order=3))
 
+# TODO: Could just remove total tests and this following block of code
 # Fill in missing total tests in Sweden and France by integrating
 integratedData = interpolatedData.groupby('iso_code').filter(lambda x: x['iso_code'].iloc[0] in ['SWE', 'FRA'])
 integratedData = integratedData.fillna(method='ffill').fillna(value=0)
@@ -144,11 +140,11 @@ interpolatedData.to_csv("../data/euro_countries_filled.csv")
 with open("../data/iso_country_codes.json", "w") as write_file:
     dump(isoCountryCodes, write_file)
 
-# Split countries into training and test data
+# Split countries into training and validation data
 train_codes = [code for code in choice(isoCountryCodes, floor(len(isoCountryCodes) * 0.75), replace=False)]
 train_codes.sort()
-test_codes = [code for code in isoCountryCodes if code not in train_codes]
-test_codes.sort()
+validation_codes = [code for code in isoCountryCodes if code not in train_codes]
+validation_codes.sort()
 
 with open("../data/train_test_codes.json", "w") as write_file:
-    dump((train_codes, test_codes), write_file)
+    dump((train_codes, validation_codes), write_file)

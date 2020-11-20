@@ -13,6 +13,7 @@ from sklearn.metrics import mean_absolute_error
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
+from keras.losses import MeanAbsolutePercentageError
 
 
 def series_to_in_out_pairs(data, n_in=1, n_out=1, leave_cols=[]):
@@ -118,15 +119,15 @@ test_x = test_x.reshape(test_x.shape[0], 1, test_x.shape[1])
 
 # Define a model
 model = Sequential()
-model.add(LSTM(64, input_shape=(train_x.shape[1], train_x.shape[2])))
+model.add(LSTM(32, input_shape=(train_x.shape[1], train_x.shape[2])))
 model.add(Dense(1))
 model.compile(loss="mse", optimizer="adam")
 # Fit network
 history = model.fit(
     train_x,
     train_y,
-    epochs=100,
-    batch_size=date_to_number(end_date) - date_to_number(start_date) + 1,
+    epochs=3000,
+    batch_size=(date_to_number(end_date) - date_to_number(start_date) + 1),  # 1 Batch for each country
     validation_data=(test_x, test_y),
     verbose=2,
     shuffle=False
