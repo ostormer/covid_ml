@@ -68,6 +68,10 @@ with open("../data/train_test_codes.json", "r") as read_file:
     train_codes, test_codes = json.load(read_file)
 
 start_date, end_date = "2020-03-01", "2020-10-31"
+n_lag_days = 7
+n_daily_features = 1
+n_single_features = 5
+n_obs = n_lag_days * n_daily_features + n_single_features  # 11 in this case
 
 raw_euro_data = pd.read_csv("../data/euro_countries_filled.csv", index_col=0)
 euro_data = raw_euro_data.copy(deep=True)
@@ -81,7 +85,7 @@ forecast_data = euro_data[forecast_columns].copy(deep=True)
 scaler = MinMaxScaler(feature_range=(0, 1))
 forecast_data[scale_columns] = scaler.fit_transform(forecast_data[scale_columns])
 
-forecast_data = series_to_in_out_pairs(forecast_data, n_in=7, n_out=1, leave_cols=["date", "latitude", "longitude", "population", "stringency_index", "iso_code"])
+forecast_data = series_to_in_out_pairs(forecast_data, n_in=n_lag_days, n_out=1, leave_cols=["date", "latitude", "longitude", "population", "stringency_index", "iso_code"])
 
 
 def date_scaling(d):
@@ -107,11 +111,6 @@ train = train_df.values
 test = test_df.values
 
 
-n_lag_days = 7
-n_daily_features = 1
-n_single_features = 5
-n_obs = n_lag_days * n_daily_features + n_single_features  # 11 in this case
-
 train_x, train_y = train[:, : n_obs], train[:, -1]
 test_x, test_y = test[:, : n_obs], test[:, -1]
 train_x = train_x.reshape(train_x.shape[0], 1, train_x.shape[1])
@@ -126,7 +125,7 @@ model.compile(loss="mse", optimizer="adam")
 history = model.fit(
     train_x,
     train_y,
-    epochs=3000,
+    epochs=300,
     batch_size=(date_to_number(end_date) - date_to_number(start_date) + 1),  # 1 Batch for each country
     validation_data=(test_x, test_y),
     verbose=2,
@@ -171,7 +170,7 @@ agg_euro_data = agg_euro_data[["date", "latitude", "longitude"] + euro_sum_cols]
 agg_euro_data = agg_euro_data.loc[:, ~agg_euro_data.columns.duplicated()]
 
 # Plot 7 steps ahead forecast for aggregated european set
-last_entry = agg_euro_data[agg_euro_data["date"] == date_scaling(end_date)]
+last_entry = agg_euro_data.tail(1)
 last_entry = last_entry.values[:, : n_obs]
 last_entry = last_entry.reshape(1, 1, n_obs)
 first_pred_date = (date.fromisoformat(end_date) + timedelta(days=1))
@@ -234,9 +233,12 @@ euro_sum_y = zeros(7)
 for code in iso_codes:
     country_data = forecast_data[forecast_data["iso_code"] == code]
     country_data = country_data.drop(columns=["iso_code"])
-
-    last_entry = country_data[country_data["date"] == date_scaling(end_date)]
+    last_entry = country_data.tail(1)
+    # FIXME: Germany is missing in the preprocessed set! Why?
+    print(code)
+    print(last_entry)
     last_entry = last_entry.values[:, : n_obs]
+    print(last_entry)
     last_entry = last_entry.reshape(1, 1, n_obs)
     prediction = model.predict(last_entry)
     predicted_values = concatenate((

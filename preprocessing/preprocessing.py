@@ -31,7 +31,7 @@ largeCountryData = selectedData[selectedData["population"] > 600000]
 # List of countries to exclude due to them being islands or including negative case data
 # Some are excluded due to not having stringency_index reported
 excludedCountryCodes = ["CYP", "GBR", "IRL", "ISL", "MLT", "LUX", "OWID_KOS", "MNE", "MKD"]
-mainLandData = largeCountryData[~largeCountryData["iso_code"].isin(excludedCountryCodes)]
+mainLandData = largeCountryData[~largeCountryData["iso_code"].isin(excludedCountryCodes)].copy()
 
 isoCountryCodes = [code for code in mainLandData["iso_code"].unique()]
 
@@ -123,8 +123,9 @@ for series in groupedData:
     series = series.interpolate('zero', fill_value=0, limit_direction='backward')
     # Then interpolate
     interpolatedData = interpolatedData.append(series.interpolate(method='polynomial', order=3))
-
+print(interpolatedData["iso_code"].value_counts()["DEU"])
 # TODO: Could just remove total tests and this following block of code
+# FIXME: This following block of code removes Germany from the dataset. WHY??????
 # Fill in missing total tests in Sweden and France by integrating
 integratedData = interpolatedData.groupby('iso_code').filter(lambda x: x['iso_code'].iloc[0] in ['SWE', 'FRA'])
 integratedData = integratedData.fillna(method='ffill').fillna(value=0)
@@ -135,7 +136,7 @@ for i in range(len(integratedData)):
 
 # Drop remaining countries with no test data
 interpolatedData = interpolatedData.dropna(subset=['new_tests', 'total_tests'])
-
+print(interpolatedData["iso_code"].value_counts()["DEU"])
 # Save preprocessed data set to csv file
 interpolatedData.to_csv("../data/euro_countries_filled.csv")
 
