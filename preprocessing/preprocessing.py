@@ -124,8 +124,10 @@ for series in groupedData:
     # Then interpolate
     interpolatedData = interpolatedData.append(series.interpolate(method='polynomial', order=3))
 print(interpolatedData["iso_code"].value_counts()["DEU"])
+print(len(interpolatedData["iso_code"].value_counts()))
+
 # TODO: Could just remove total tests and this following block of code
-# FIXME: This following block of code removes Germany from the dataset. WHY??????
+# FIXME: This following block of code removes Germany and one other country from the dataset. WHY??????
 # Fill in missing total tests in Sweden and France by integrating
 integratedData = interpolatedData.groupby('iso_code').filter(lambda x: x['iso_code'].iloc[0] in ['SWE', 'FRA'])
 integratedData = integratedData.fillna(method='ffill').fillna(value=0)
@@ -136,6 +138,7 @@ for i in range(len(integratedData)):
 
 # Drop remaining countries with no test data
 interpolatedData = interpolatedData.dropna(subset=['new_tests', 'total_tests'])
+print(len(interpolatedData["iso_code"].value_counts()))
 print(interpolatedData["iso_code"].value_counts()["DEU"])
 # Save preprocessed data set to csv file
 interpolatedData.to_csv("../data/euro_countries_filled.csv")
