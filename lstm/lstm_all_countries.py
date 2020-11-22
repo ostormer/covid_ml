@@ -11,13 +11,13 @@ from sklearn.metrics import mean_absolute_error
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
-from keras.losses import MeanAbsolutePercentageError
 
 
 tf_random.set_seed(1)
 seed(1)
 
-def series_to_in_out_pairs(data, n_in=1, n_out=1, leave_cols=[]):
+
+def series_to_in_out_pairs(data, n_in=1, n_out=1, leave_cols=None):
     """
     :param data: pandas dataframe to be encoded
     :param n_in: number of consecutive lag observations used for prediction
@@ -25,14 +25,16 @@ def series_to_in_out_pairs(data, n_in=1, n_out=1, leave_cols=[]):
     :param leave_cols: variables to keep one of in input data
     :return: pandas dataframe with input-output pairs ready for supervised learning
     """
+    if leave_cols is None:
+        leave_cols = []
     scale_data = data[[col for col in list(data.columns) if col not in leave_cols]]
     cols, names = list(), list()
-    for i in range(n_in, 0, -1):
-        cols.append(scale_data.shift(i))
-        names += ["{:s}_(t-{:d})".format(col, i) for col in scale_data.columns]
-    for i in range(0, n_out):
-        cols.append(scale_data.shift(-i))
-        names += ["{:s}_(t+{:d})".format(col, i) for col in scale_data.columns]
+    for lag in range(n_in, 0, -1):
+        cols.append(scale_data.shift(lag))
+        names += ["{:s}_(t-{:d})".format(col, lag) for col in scale_data.columns]
+    for lag in range(0, n_out):
+        cols.append(scale_data.shift(-lag))
+        names += ["{:s}_(t+{:d})".format(col, lag) for col in scale_data.columns]
     aggregated = pd.concat(cols, axis=1)
     aggregated.columns = names
     if len(leave_cols) > 0:
@@ -126,7 +128,7 @@ model.compile(loss="mse", optimizer="adam")
 history = model.fit(
     train_x,
     train_y,
-    epochs=300,
+    epochs=400,
     batch_size=(date_to_number(end_date) - date_to_number(start_date) + 1),  # 1 Batch for each country
     validation_data=(test_x, test_y),
     verbose=2,
@@ -151,9 +153,9 @@ actual_test = scaler.inverse_transform(actual_test)
 y = actual_test[:, -1]
 
 mae = mean_absolute_error(y_hat, y)
-# Print Mean Absolute Error for all 1-day-ahead forecasts for all countries in the test set.
+# Print Mean Absolute Error for all 1-day-ahead forecasts for all countries in the validation set.
 # This is the average error of number of new cases per day per country.
-print("\nTest-set 1 step ahead MAE: {:.3f}\n".format(mae))
+print("\nValidation set 1 step ahead MAE: {:.3f}\n".format(mae))
 
 # Evaluate on aggregated set for all of Europe for first week of november
 euro_mean_data = forecast_data.groupby("date")[["latitude", "longitude", "stringency_index"]].mean().reset_index()
