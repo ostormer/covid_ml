@@ -1,7 +1,5 @@
 from numpy.random import seed
-seed(1)
 from tensorflow import random as tf_random
-tf_random.set_seed(1)
 
 import pandas as pd
 import json
@@ -15,6 +13,9 @@ from keras.layers import Dense
 from keras.layers import LSTM
 from keras.losses import MeanAbsolutePercentageError
 
+
+tf_random.set_seed(1)
+seed(1)
 
 def series_to_in_out_pairs(data, n_in=1, n_out=1, leave_cols=[]):
     """
@@ -234,11 +235,7 @@ for code in iso_codes:
     country_data = forecast_data[forecast_data["iso_code"] == code]
     country_data = country_data.drop(columns=["iso_code"])
     last_entry = country_data.tail(1)
-    # FIXME: Germany is missing in the preprocessed set! Why?
-    print(code)
-    print(last_entry)
     last_entry = last_entry.values[:, : n_obs]
-    print(last_entry)
     last_entry = last_entry.reshape(1, 1, n_obs)
     prediction = model.predict(last_entry)
     predicted_values = concatenate((

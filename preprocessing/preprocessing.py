@@ -20,8 +20,7 @@ selectedData = euroDataAllColumns[[
     "new_cases",
     "new_cases_smoothed",
     "population",
-    "total_tests",  # There are holes in the data relating to number of tests
-    "new_tests",  # See above ^
+    "new_tests",  # There are holes in the data relating to number of tests
     "new_tests_smoothed",  # See above ^^
     "stringency_index",
 ]]
@@ -60,7 +59,6 @@ for isoCode in isoCountryCodes:
             "new_cases": zeros(paddingLength),
             "new_cases_smoothed": zeros(paddingLength),
             "population": ones(paddingLength) * population,
-            "total_tests": zeros(paddingLength),
             "new_tests": zeros(paddingLength),
             "new_tests_smoothed": zeros(paddingLength),
             "stringency_index": zeros(paddingLength)  # Assuming no measures were taken before COVID cases were reported
@@ -123,23 +121,7 @@ for series in groupedData:
     series = series.interpolate('zero', fill_value=0, limit_direction='backward')
     # Then interpolate
     interpolatedData = interpolatedData.append(series.interpolate(method='polynomial', order=3))
-print(interpolatedData["iso_code"].value_counts()["DEU"])
-print(len(interpolatedData["iso_code"].value_counts()))
 
-# TODO: Could just remove total tests and this following block of code
-# FIXME: This following block of code removes Germany and one other country from the dataset. WHY??????
-# Fill in missing total tests in Sweden and France by integrating
-integratedData = interpolatedData.groupby('iso_code').filter(lambda x: x['iso_code'].iloc[0] in ['SWE', 'FRA'])
-integratedData = integratedData.fillna(method='ffill').fillna(value=0)
-integratedData = [group[1] for group in integratedData.groupby('iso_code')]
-for i in range(len(integratedData)):
-    integratedData[i]['total_tests'] = insert(cumtrapz(integratedData[i]['new_tests']), 0, 0)
-    interpolatedData.update(integratedData[i])
-
-# Drop remaining countries with no test data
-interpolatedData = interpolatedData.dropna(subset=['new_tests', 'total_tests'])
-print(len(interpolatedData["iso_code"].value_counts()))
-print(interpolatedData["iso_code"].value_counts()["DEU"])
 # Save preprocessed data set to csv file
 interpolatedData.to_csv("../data/euro_countries_filled.csv")
 
