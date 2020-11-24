@@ -9,7 +9,7 @@ from scipy.integrate import cumtrapz
 
 MonkeyPatch.patch_fromisoformat()
 
-fullDataSet = pd.read_csv("../data/owid-covid-data_2020-11-10.csv")
+fullDataSet = pd.read_csv("../data/owid-covid-data_2020-11-22.csv")
 
 euroCountryCodes = fullDataSet[fullDataSet["continent"] == "Europe"].iso_code.unique()
 euroDataAllColumns = fullDataSet[fullDataSet["iso_code"].isin(euroCountryCodes)]
