@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.dates import date2num
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 
 hw_pred = pd.read_csv("../predictions/hw_predictions.csv")  # File has moved (?)
 lstm_pred = pd.read_csv("../predictions/lstm_predictions.csv")
@@ -35,15 +35,14 @@ for i, isoCode in enumerate(["NOR", "SWE", "FIN", "BEL"]):
 
 for ax in axs.flat:
     ax.set(xlabel="Date", ylabel="Cases per million")
-    plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
+    plt.setp(ax.get_xticklabels(), rotation=25, ha="right")
     ax.grid(axis="y")
 
 fig.tight_layout(pad=3)
 handles, labels = axs.flat[0].get_legend_handles_labels()
-fig.legend(handles, labels, bbox_to_anchor=(0.08, 0.07, 0.88, 0.03), loc="lower left", ncol=4, mode="expand", borderaxespad=0.)
-fig.subplots_adjust(bottom=0.25)
+fig.legend(handles, labels, prop={"size": 13}, bbox_to_anchor=(0.08, 0.03, 0.88, 0.01),
+           loc="lower left", ncol=4, mode="expand", borderaxespad=0.)
+fig.subplots_adjust(bottom=0.2, top=0.88)
 
-
-
-fig.suptitle("Prediction of new cases (7-days smoothed) for sample countries")
+fig.suptitle("Prediction of new cases per 1 000 000 (7-days smoothed) for sample countries", fontsize=14, y=0.97)
 fig.savefig("../plots/sample_pred.png")
