@@ -19,6 +19,8 @@ selectedData = euroDataAllColumns[[
     "date",
     "new_cases",
     "new_cases_smoothed",
+    "new_cases_per_million",
+    "new_cases_smoothed_per_million",
     "population",
     "new_tests",  # There are holes in the data relating to number of tests
     "new_tests_smoothed",  # See above ^^
@@ -58,6 +60,8 @@ for isoCode in isoCountryCodes:
             "date": dates,
             "new_cases": zeros(paddingLength),
             "new_cases_smoothed": zeros(paddingLength),
+            "new_cases_per_million": zeros(paddingLength),
+            "new_cases_smoothed_per_million": zeros(paddingLength),
             "population": ones(paddingLength) * population,
             "new_tests": zeros(paddingLength),
             "new_tests_smoothed": zeros(paddingLength),
