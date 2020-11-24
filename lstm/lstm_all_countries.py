@@ -13,8 +13,8 @@ from keras.layers import Dense
 from keras.layers import LSTM
 
 
-tf_random.set_seed(1)
-seed(1)
+# tf_random.set_seed(1)
+# seed(1)
 
 
 def series_to_in_out_pairs(data, n_in=1, n_out=1, leave_cols=None):
@@ -82,13 +82,17 @@ euro_data["date"] = euro_data["date"].apply(date_to_number)
 euro_data = euro_data[euro_data["date"] <= date_to_number(end_date)]
 
 # Scale chosen features
-forecast_columns = ["date", "latitude", "longitude", "population", "stringency_index", "new_cases_smoothed", "iso_code"]
-scale_columns = ["date", "latitude", "longitude", "population", "stringency_index", "new_cases_smoothed"]
+forecast_columns = ["date", "latitude", "longitude", "population", "stringency_index",
+                    "new_cases_smoothed_per_million", "iso_code"]
+scale_columns = ["date", "latitude", "longitude", "population", "stringency_index",
+                 "new_cases_smoothed_per_million"]
 forecast_data = euro_data[forecast_columns].copy(deep=True)
 scaler = MinMaxScaler(feature_range=(0, 1))
 forecast_data[scale_columns] = scaler.fit_transform(forecast_data[scale_columns])
 
-forecast_data = series_to_in_out_pairs(forecast_data, n_in=n_lag_days, n_out=1, leave_cols=["date", "latitude", "longitude", "population", "stringency_index", "iso_code"])
+forecast_data = series_to_in_out_pairs(forecast_data, n_in=n_lag_days, n_out=1,
+                                       leave_cols=["date", "latitude", "longitude",
+                                                   "population", "stringency_index", "iso_code"])
 
 
 def date_scaling(d):
@@ -113,12 +117,12 @@ test_df = test_df.drop(columns=["iso_code"])
 train = train_df.values
 test = test_df.values
 
-
 train_x, train_y = train[:, : n_obs], train[:, -1]
 test_x, test_y = test[:, : n_obs], test[:, -1]
 train_x = train_x.reshape(train_x.shape[0], 1, train_x.shape[1])
 test_x = test_x.reshape(test_x.shape[0], 1, test_x.shape[1])
 
+print((date_to_number(end_date) - date_to_number(start_date) + 1))
 # Define a model
 model = Sequential()
 model.add(LSTM(32, input_shape=(train_x.shape[1], train_x.shape[2])))
@@ -129,7 +133,8 @@ history = model.fit(
     train_x,
     train_y,
     epochs=400,
-    batch_size=(date_to_number(end_date) - date_to_number(start_date) + 1),  # 1 Batch for each country
+    # 1 Batch for each country so weights are updated after each country is processed
+    batch_size=(date_to_number(end_date) - date_to_number(start_date) + 1),
     validation_data=(test_x, test_y),
     verbose=2,
     shuffle=False
@@ -153,86 +158,17 @@ actual_test = scaler.inverse_transform(actual_test)
 y = actual_test[:, -1]
 
 mae = mean_absolute_error(y_hat, y)
-# Print Mean Absolute Error for all 1-day-ahead forecasts for all countries in the validation set.
-# This is the average error of number of new cases per day per country.
-print("\nValidation set 1 step ahead MAE: {:.3f}\n".format(mae))
 
-# Evaluate on aggregated set for all of Europe for first week of november
-euro_mean_data = forecast_data.groupby("date")[["latitude", "longitude", "stringency_index"]].mean().reset_index()
-euro_sum_cols = ["population", "new_cases_smoothed_(t-7)",
-                 "new_cases_smoothed_(t-6)",
-                 "new_cases_smoothed_(t-5)",
-                 "new_cases_smoothed_(t-4)",
-                 "new_cases_smoothed_(t-3)",
-                 "new_cases_smoothed_(t-2)",
-                 "new_cases_smoothed_(t-1)",
-                 "new_cases_smoothed_(t+0)"]
-euro_sum_data = forecast_data.groupby("date")[euro_sum_cols].sum().reset_index()
-agg_euro_data = pd.concat([euro_mean_data, euro_sum_data], axis=1)
-agg_euro_data = agg_euro_data[["date", "latitude", "longitude"] + euro_sum_cols]
-agg_euro_data = agg_euro_data.loc[:, ~agg_euro_data.columns.duplicated()]
-
-# Plot 7 steps ahead forecast for aggregated european set
-last_entry = agg_euro_data.tail(1)
-last_entry = last_entry.values[:, : n_obs]
-last_entry = last_entry.reshape(1, 1, n_obs)
 first_pred_date = (date.fromisoformat(end_date) + timedelta(days=1))
-first_prediction = model.predict(last_entry)
-predicted_euro_values = concatenate((
-    [date_scaling(first_pred_date.isoformat())],
-    last_entry[0, 0, 1:n_single_features],
-    last_entry[0, 0, n_single_features+1:],
-    first_prediction[0]))
-predicted_euro_values = predicted_euro_values.reshape((1, 1, n_obs))
-
 n_pred_steps = 7
-plt.clf()
-for i in range(1, n_pred_steps):
-    last_entry = predicted_euro_values[-1:, :, :]
-    new_prediction = model.predict(last_entry)
-    new_date = (first_pred_date + timedelta(days=i)).isoformat()
-    new_last_row = concatenate((
-        [date_scaling(new_date)],
-        predicted_euro_values[-1, 0, 1:n_single_features - 1],
-        predicted_euro_values[-1, 0, n_single_features:],
-        new_prediction[0]))
-    new_last_row = new_last_row.reshape((1, 1, test_x.shape[1]))
-    predicted_euro_values = concatenate((predicted_euro_values, new_last_row))
-
-predicted_euro_values = predicted_euro_values.reshape((predicted_euro_values.shape[0], predicted_euro_values.shape[2]))
-predicted_euro_values = concatenate((predicted_euro_values[:, 0:n_single_features], predicted_euro_values[:, -1:]), axis=1)
-predicted_euro_values = scaler.inverse_transform(predicted_euro_values)
-
-pred_x = predicted_euro_values[:, 0].reshape(n_pred_steps)
-pred_y = predicted_euro_values[:, n_single_features].reshape(n_pred_steps)
-pred_dates = [number_to_datetime(round(x)) for x in pred_x]
-
-recent_agg = raw_euro_data.groupby("date")["new_cases_smoothed"].sum().reset_index()
-recent_agg = recent_agg[recent_agg["date"] >= "2020-10-17"]
-recent_agg = recent_agg[recent_agg["date"] <= "2020-11-07"]
-recent_dates = [datetime.fromisoformat(d) for d in recent_agg[["date"]].values.flatten()]
-recent_agg_y = recent_agg[["new_cases_smoothed"]].values.flatten()
-
-plt.clf()
-
-euro_mae = mean_absolute_error(recent_agg_y[-7:], pred_y)
-print("Europe forecast as a country 7-days-ahead MAE: {:.2f}".format(euro_mae))
-
-plt.plot_date(recent_dates, recent_agg_y, "r.-")
-plt.plot_date(pred_dates, pred_y, "b.-")
-plt.xticks(rotation=20, horizontalalignment="right")
-plt.title("Europe")
-plt.xlabel("Time")  # Doesn't render because it is pushed below the picture by the dates
-plt.ylabel("Cases")
-plt.grid(True, "major", "y", color="grey", linewidth=0.2)
-plt.legend(["New cases (7-days smoothed)", "Recursive 7-days forecast"])
-plt.savefig("plots/EUROPE")
-plt.clf()
+pred_dates = [(first_pred_date + timedelta(days=i)).isoformat() for i in range(n_pred_steps)]
 
 lstm_predictions = pd.DataFrame()
 lstm_predictions["date"] = pred_dates
-# Plot 7 steps ahead forecast for chosen countries and sum of all countries
+country_mae_list = []
+# Plot 7 steps ahead forecast for chosen countries and compute MAE of recursive prediction on test set
 euro_sum_y = zeros(7)
+plt.clf()
 for code in iso_codes:
     country_data = forecast_data[forecast_data["iso_code"] == code]
     country_data = country_data.drop(columns=["iso_code"])
@@ -243,7 +179,7 @@ for code in iso_codes:
     predicted_values = concatenate((
         [date_scaling(first_pred_date.isoformat())],
         last_entry[0, 0, 1:n_single_features],
-        last_entry[0, 0, n_single_features+1:],
+        last_entry[0, 0, n_single_features + 1:],
         prediction[0]))
     predicted_values = predicted_values.reshape((1, 1, n_obs))
 
@@ -253,7 +189,7 @@ for code in iso_codes:
         new_date = (first_pred_date + timedelta(days=i)).isoformat()
         new_last_row = concatenate((
             [date_scaling(new_date)],
-            predicted_values[-1, 0, 1:n_single_features-1],
+            predicted_values[-1, 0, 1:n_single_features - 1],
             predicted_values[-1, 0, n_single_features:],
             new_prediction[0]))
         new_last_row = new_last_row.reshape((1, 1, test_x.shape[1]))
@@ -267,13 +203,23 @@ for code in iso_codes:
     pred_y = predicted_values[:, n_single_features].reshape(n_pred_steps)
     pred_dates = [number_to_datetime(round(x)) for x in pred_x]
 
+    country_test = raw_euro_data[raw_euro_data["iso_code"] == code]
+    country_test = country_test[country_test["date"] >= "2020-11-01"]
+    country_test = country_test[country_test["date"] <= "2020-11-07"]
+    test_y = country_test["new_cases_smoothed_per_million"].values
+    country_mae = mean_absolute_error(test_y, pred_y)
+    country_mae_list.append(country_mae)
+
     euro_sum_y += pred_y
-    if code in ["DEU", "ESP", "NOR"]:
+    # Demo countries
+    if code in ["DEU", "ESP", "NOR", "SWE"]:
         recent_history = raw_euro_data[raw_euro_data["iso_code"] == code]
         recent_history = recent_history[recent_history["date"] >= "2020-10-17"]
         recent_history = recent_history[recent_history["date"] <= "2020-11-07"]
 
-        recent_y = recent_history["new_cases_smoothed"].values
+        recent_y = recent_history["new_cases_smoothed_per_million"].values
+
+        recent_dates = [datetime.fromisoformat(d) for d in recent_history[["date"]].values.flatten()]
 
         country_mae = mean_absolute_error(recent_y[-7:], pred_y)
         print("{:s} 7-days-ahead MAE: {:.2f}".format(code, country_mae))
@@ -291,20 +237,7 @@ for code in iso_codes:
 
         lstm_predictions["lstm_{:s}".format(code)] = pred_y
 
-euro_sum_mae = mean_absolute_error(recent_agg_y[-7:], euro_sum_y)
-print("Sum of European countries 7-days-ahead MAE: {:.2f}".format(euro_sum_mae))
-
-plt.plot_date(recent_dates, recent_agg_y, "r.-")
-plt.plot_date(pred_dates, euro_sum_y, "b.-")
-plt.xticks(rotation=20, horizontalalignment="right")
-plt.title("Sum of european predictions")
-plt.xlabel("Time")  # Doesn't render because it is pushed below the picture by the dates
-plt.ylabel("Cases")
-plt.grid(True, "major", "y", color="grey", linewidth=0.2)
-plt.legend(["New cases (7-days smoothed)", "Recursive 7-day forecast"])
-plt.savefig("plots/EUROPE_sum.png")
-plt.clf()
-
-lstm_predictions["lstm_euro_sum"] = euro_sum_y
+total_mae = sum(country_mae_list) / len(country_mae_list)
+print("MAE of entire test set: {:.2f}".format(total_mae))
 lstm_predictions.to_pickle("../lstm_predictions/lstm_predictions.pkl")
 lstm_predictions.to_csv("../lstm_predictions/lstm_predictions.csv")
