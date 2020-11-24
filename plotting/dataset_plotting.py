@@ -6,8 +6,8 @@ import json
 plt.close("all")
 
 
-euroData = pd.read_csv("data/euro_countries_filled.csv")
-with open("data/iso_country_codes.json", "r") as read_file:
+euroData = pd.read_csv("../data/euro_countries_filled.csv")
+with open("../data/iso_country_codes.json", "r") as read_file:
     countryCodes = json.load(read_file)
 
 euroData = euroData[euroData["date"] <= "2020-11-06"]
@@ -31,7 +31,7 @@ for isoCode in countryCodes:
 fig, axs = plt.subplots(2, 2)
 fig.set_size_inches(1920/150, 1080/150)
 
-for i, isoCode in enumerate(["DEU", "ESP", "NOR", "SWE"]):
+for i, isoCode in enumerate(["NOR", "SWE", "FIN", "BEL"]):
     countryData = euroData[euroData["iso_code"] == isoCode]
     countryName = (countryData.location.unique()[0])
     dateTimes = [datetime.strptime(date, "%Y-%m-%d") for date in countryData["date"]]
@@ -46,4 +46,4 @@ for ax in axs.flat:
 
 fig.tight_layout(pad=3)
 fig.suptitle("New cases (7-days smoothed) for sample countries")
-fig.savefig("plots/sample_plots.png")
+fig.savefig("../plots/sample_plots.png")
