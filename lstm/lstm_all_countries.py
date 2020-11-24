@@ -73,7 +73,7 @@ with open("../data/train_test_codes.json", "r") as read_file:
 start_date, end_date = "2020-03-01", "2020-10-31"
 n_lag_days = 7
 n_daily_features = 1
-n_single_features = 5
+n_single_features = 4
 n_obs = n_lag_days * n_daily_features + n_single_features  # 11 in this case
 
 raw_euro_data = pd.read_csv("../data/euro_countries_filled.csv", index_col=0)
@@ -82,9 +82,9 @@ euro_data["date"] = euro_data["date"].apply(date_to_number)
 euro_data = euro_data[euro_data["date"] <= date_to_number(end_date)]
 
 # Scale chosen features
-forecast_columns = ["date", "latitude", "longitude", "population", "stringency_index",
+forecast_columns = ["date", "latitude", "longitude", "stringency_index",
                     "new_cases_smoothed_per_million", "iso_code"]
-scale_columns = ["date", "latitude", "longitude", "population", "stringency_index",
+scale_columns = ["date", "latitude", "longitude", "stringency_index",
                  "new_cases_smoothed_per_million"]
 forecast_data = euro_data[forecast_columns].copy(deep=True)
 scaler = MinMaxScaler(feature_range=(0, 1))
@@ -92,7 +92,7 @@ forecast_data[scale_columns] = scaler.fit_transform(forecast_data[scale_columns]
 
 forecast_data = series_to_in_out_pairs(forecast_data, n_in=n_lag_days, n_out=1,
                                        leave_cols=["date", "latitude", "longitude",
-                                                   "population", "stringency_index", "iso_code"])
+                                                   "stringency_index", "iso_code"])
 
 
 def date_scaling(d):
@@ -167,7 +167,7 @@ lstm_predictions = pd.DataFrame()
 lstm_predictions["date"] = pred_dates
 country_mae_list = []
 # Plot 7 steps ahead forecast for chosen countries and compute MAE of recursive prediction on test set
-euro_sum_y = zeros(7)
+
 plt.clf()
 for code in iso_codes:
     country_data = forecast_data[forecast_data["iso_code"] == code]
@@ -210,7 +210,6 @@ for code in iso_codes:
     country_mae = mean_absolute_error(test_y, pred_y)
     country_mae_list.append(country_mae)
 
-    euro_sum_y += pred_y
     # Demo countries
     if code in ["DEU", "ESP", "NOR", "SWE"]:
         recent_history = raw_euro_data[raw_euro_data["iso_code"] == code]
@@ -221,7 +220,7 @@ for code in iso_codes:
 
         recent_dates = [datetime.fromisoformat(d) for d in recent_history[["date"]].values.flatten()]
 
-        country_mae = mean_absolute_error(recent_y[-7:], pred_y)
+        country_mae = mean_absolute_error(recent_y[-n_pred_steps:], pred_y)
         print("{:s} 7-days-ahead MAE: {:.2f}".format(code, country_mae))
 
         plt.plot_date(recent_dates, recent_y, "r.-")
@@ -239,5 +238,5 @@ for code in iso_codes:
 
 total_mae = sum(country_mae_list) / len(country_mae_list)
 print("MAE of entire test set: {:.2f}".format(total_mae))
-lstm_predictions.to_pickle("../lstm_predictions/lstm_predictions.pkl")
-lstm_predictions.to_csv("../lstm_predictions/lstm_predictions.csv")
+
+lstm_predictions.to_csv("../predictions/lstm_predictions.csv")
