@@ -25,7 +25,7 @@ for isoCode in countryCodes:
     plt.ylabel("Cases")
     plt.grid(True, "major", "y", color="grey", linewidth=0.2)
     plt.legend(["New cases per million (7-day smoothed)"])
-    plt.savefig("plots/cases_smoothed/{:s}.png".format(isoCode))
+    plt.savefig("../plots/cases_smoothed/{:s}.png".format(isoCode))
     plt.clf()
 
 fig, axs = plt.subplots(2, 2)
