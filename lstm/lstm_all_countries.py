@@ -1,21 +1,14 @@
-from numpy.random import seed
-from tensorflow import random as tf_random
-
 import pandas as pd
 import json
 from math import sqrt
 import matplotlib.pyplot as plt
 from datetime import date, datetime, timedelta
-from numpy import concatenate, zeros
+from numpy import concatenate
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
-
-
-# tf_random.set_seed(1)
-# seed(1)
 
 
 def series_to_in_out_pairs(data, n_in=1, n_out=1, leave_cols=None):
@@ -210,14 +203,14 @@ for code in iso_codes:
     country_mse_list.append(country_mse)
 
     # Demo countries
-    if code in ["DEU", "ESP", "NOR", "SWE"]:
+    if code in ["NOR", "SWE", "FIN", "BEL"]:
         recent_history = raw_euro_data[raw_euro_data["iso_code"] == code]
         recent_history = recent_history[recent_history["date"] >= "2020-10-17"]
         recent_history = recent_history[recent_history["date"] <= "2020-11-07"]
         recent_y = recent_history["new_cases_smoothed_per_million"].values
         recent_dates = [datetime.fromisoformat(d) for d in recent_history[["date"]].values.flatten()]
         country_RMSE = sqrt(country_mse)
-        print("{:s} 7-days-ahead RMSE: {:.2f}".format(code, country_mse))
+        print("{:s} 7-days-ahead RMSE: {:.2f}".format(code, country_RMSE))
 
         plt.plot_date(recent_dates, recent_y, "r.-")
         plt.plot_date(pred_dates, pred_y, "b.-")
