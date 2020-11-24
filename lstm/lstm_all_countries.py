@@ -3,11 +3,12 @@ from tensorflow import random as tf_random
 
 import pandas as pd
 import json
+from math import sqrt
 import matplotlib.pyplot as plt
 from datetime import date, datetime, timedelta
 from numpy import concatenate, zeros
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_squared_error
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
@@ -122,7 +123,6 @@ test_x, test_y = test[:, : n_obs], test[:, -1]
 train_x = train_x.reshape(train_x.shape[0], 1, train_x.shape[1])
 test_x = test_x.reshape(test_x.shape[0], 1, test_x.shape[1])
 
-print((date_to_number(end_date) - date_to_number(start_date) + 1))
 # Define a model
 model = Sequential()
 model.add(LSTM(32, input_shape=(train_x.shape[1], train_x.shape[2])))
@@ -136,7 +136,7 @@ history = model.fit(
     # 1 Batch for each country so weights are updated after each country is processed
     batch_size=(date_to_number(end_date) - date_to_number(start_date) + 1),
     validation_data=(test_x, test_y),
-    verbose=2,
+    verbose=0,
     shuffle=False
 )
 # Plot history
@@ -157,7 +157,6 @@ actual_test = concatenate((test_x[:, 0:n_single_features], actual_test), axis=1)
 actual_test = scaler.inverse_transform(actual_test)
 y = actual_test[:, -1]
 
-mae = mean_absolute_error(y_hat, y)
 
 first_pred_date = (date.fromisoformat(end_date) + timedelta(days=1))
 n_pred_steps = 7
@@ -165,8 +164,8 @@ pred_dates = [(first_pred_date + timedelta(days=i)).isoformat() for i in range(n
 
 lstm_predictions = pd.DataFrame()
 lstm_predictions["date"] = pred_dates
-country_mae_list = []
-# Plot 7 steps ahead forecast for chosen countries and compute MAE of recursive prediction on test set
+country_mse_list = []
+# Plot 7 steps ahead forecast for chosen countries and compute MSE of recursive prediction on test set
 
 plt.clf()
 for code in iso_codes:
@@ -207,21 +206,18 @@ for code in iso_codes:
     country_test = country_test[country_test["date"] >= "2020-11-01"]
     country_test = country_test[country_test["date"] <= "2020-11-07"]
     test_y = country_test["new_cases_smoothed_per_million"].values
-    country_mae = mean_absolute_error(test_y, pred_y)
-    country_mae_list.append(country_mae)
+    country_mse = mean_squared_error(test_y, pred_y)
+    country_mse_list.append(country_mse)
 
     # Demo countries
     if code in ["DEU", "ESP", "NOR", "SWE"]:
         recent_history = raw_euro_data[raw_euro_data["iso_code"] == code]
         recent_history = recent_history[recent_history["date"] >= "2020-10-17"]
         recent_history = recent_history[recent_history["date"] <= "2020-11-07"]
-
         recent_y = recent_history["new_cases_smoothed_per_million"].values
-
         recent_dates = [datetime.fromisoformat(d) for d in recent_history[["date"]].values.flatten()]
-
-        country_mae = mean_absolute_error(recent_y[-n_pred_steps:], pred_y)
-        print("{:s} 7-days-ahead MAE: {:.2f}".format(code, country_mae))
+        country_RMSE = sqrt(country_mse)
+        print("{:s} 7-days-ahead RMSE: {:.2f}".format(code, country_mse))
 
         plt.plot_date(recent_dates, recent_y, "r.-")
         plt.plot_date(pred_dates, pred_y, "b.-")
@@ -236,7 +232,7 @@ for code in iso_codes:
 
         lstm_predictions["lstm_{:s}".format(code)] = pred_y
 
-total_mae = sum(country_mae_list) / len(country_mae_list)
-print("MAE of entire test set: {:.2f}".format(total_mae))
+total_rmse = sqrt(sum(country_mse_list) / len(country_mse_list))
+print("RMSE of entire test set: {:.2f}".format(total_rmse))
 
 lstm_predictions.to_csv("../predictions/lstm_predictions.csv")
