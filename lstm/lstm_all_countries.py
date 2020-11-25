@@ -10,6 +10,13 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
 
+from tensorflow import random as tf_random
+from numpy.random import seed as np_set_seed
+
+
+tf_random.set_seed(0)  # Set the seeds for reproducible results
+np_set_seed(0)
+
 
 def series_to_in_out_pairs(data, n_in=1, n_out=1, leave_cols=None):
     """
@@ -203,7 +210,7 @@ for code in iso_codes:
     country_mse_list.append(country_mse)
 
     # Demo countries
-    if code in ["NOR", "SWE", "FIN", "BEL"]:
+    if code in ["BEL", "FIN", "NOR", "SWE"]:
         recent_history = raw_euro_data[raw_euro_data["iso_code"] == code]
         recent_history = recent_history[recent_history["date"] >= "2020-10-17"]
         recent_history = recent_history[recent_history["date"] <= "2020-11-07"]

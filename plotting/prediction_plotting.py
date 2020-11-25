@@ -21,7 +21,7 @@ fig.set_size_inches(1920/150, 1080/150)
 for ax in axs.flat:
     ax.axvspan(pred_dates[0], pred_dates[-1], facecolor="0.5", alpha=0.2)
 
-for i, isoCode in enumerate(["NOR", "SWE", "FIN", "BEL"]):
+for i, isoCode in enumerate(["BEL", "FIN", "NOR", "SWE"]):
     hw_y = hw_pred["Holt-Winter Additive + Damped {:s}".format(isoCode)]
     lstm_y = lstm_pred["lstm_{:s}".format(isoCode)]
     rf_y = rf_pred["rf_{:s}".format(isoCode)]

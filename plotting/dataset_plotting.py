@@ -31,7 +31,7 @@ for isoCode in countryCodes:
 fig, axs = plt.subplots(2, 2)
 fig.set_size_inches(1920/150, 1080/150)
 
-for i, isoCode in enumerate(["NOR", "SWE", "FIN", "BEL"]):
+for i, isoCode in enumerate(["BEL", "FIN", "NOR", "SWE"]):
     countryData = euroData[euroData["iso_code"] == isoCode]
     countryName = (countryData.location.unique()[0])
     dateTimes = [datetime.strptime(date, "%Y-%m-%d") for date in countryData["date"]]
