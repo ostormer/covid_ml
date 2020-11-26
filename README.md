@@ -8,7 +8,7 @@ As part of the project we have created an LSTM deep learning model, an ensemble 
 
 
 ## Report and podcast
-A project report was written as part of the project, and can be found here: [`report_link`](report_link.pdf). <!-- TODO: upload report and update link! -->
+A project report was written as part of the project, and can be found here: [`podcast_report/project_report.pdf`](podcast_report/ML-COVID-Report.pdf).
 
 We also recorded a podcast, which can be found in [`podcast_report/ML-Podcast.m4a`](podcast_report/ML-Podcast.m4a)
 
@@ -31,7 +31,7 @@ Running the file `preprocessing.py` preprocesses the raw data from the file `dat
 
 - `SOMETHING SOMETHING RF .ipynb` Trains and evaluates the Random Forest model.
     - As this is a jupyter notebook, it must be run by booting up the jupyter server and running all blocks of code.
-    - The output of the notebook can be seen without setting anything up by opening it on [github.com in a browser](SOMETHING_SOMETHING_RF_GITHUB_LINK)
+    - The output of the notebook can be seen without setting anything up by opening it on [github.com in a browser](https://github.com/ostormer/covid_ml/blob/main/Random_Forest.ipynb)
 
 All these three models save their predictions on the test set and sample countries as csv-files in the folder `predictions/`
 
