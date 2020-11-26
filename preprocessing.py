@@ -9,7 +9,7 @@ from scipy.integrate import cumtrapz
 
 MonkeyPatch.patch_fromisoformat()
 
-fullDataSet = pd.read_csv("../data/owid-covid-data_2020-11-22.csv")
+fullDataSet = pd.read_csv("data/owid-covid-data_2020-11-22.csv")
 
 euroCountryCodes = fullDataSet[fullDataSet["continent"] == "Europe"].iso_code.unique()
 euroDataAllColumns = fullDataSet[fullDataSet["iso_code"].isin(euroCountryCodes)]
@@ -105,7 +105,7 @@ sortedData = newData.copy().sort_values(by=["iso_code", "date"])
 sortedData = sortedData.reset_index(drop=True)
 
 # Add latitude and longitude
-geoData = pd.read_csv("../data/countries_codes_and_coordinates.csv")
+geoData = pd.read_csv("data/countries_codes_and_coordinates.csv")
 geoDict = {}
 for index, row in geoData.iterrows():
     code = row["Alpha-3 code"].strip("\" ")
@@ -127,10 +127,10 @@ for series in groupedData:
     interpolatedData = interpolatedData.append(series.interpolate(method='polynomial', order=3))
 
 # Save preprocessed data set to csv file
-interpolatedData.to_csv("../data/euro_countries_filled.csv")
+interpolatedData.to_csv("data/euro_countries_filled.csv")
 
 # Save list of ISO coutry codes to json file
-with open("../data/iso_country_codes.json", "w") as write_file:
+with open("data/iso_country_codes.json", "w") as write_file:
     dump(isoCountryCodes, write_file)
 
 # Split countries into training and validation data
@@ -139,5 +139,5 @@ train_codes.sort()
 validation_codes = [code for code in isoCountryCodes if code not in train_codes]
 validation_codes.sort()
 
-with open("../data/train_test_codes.json", "w") as write_file:
+with open("data/train_test_codes.json", "w") as write_file:
     dump((train_codes, validation_codes), write_file)

@@ -65,10 +65,10 @@ def number_to_datetime(n):
     return datetime.fromisoformat("2019-12-31") + timedelta(days=n)
 
 
-with open("../data/iso_country_codes.json", "r") as read_file:
+with open("data/iso_country_codes.json", "r") as read_file:
     iso_codes = json.load(read_file)
 
-with open("../data/train_test_codes.json", "r") as read_file:
+with open("data/train_test_codes.json", "r") as read_file:
     train_codes, test_codes = json.load(read_file)
 
 start_date, end_date = "2020-03-01", "2020-10-31"
@@ -77,7 +77,7 @@ n_daily_features = 1
 n_single_features = 4
 n_obs = n_lag_days * n_daily_features + n_single_features  # 11 in this case
 
-raw_euro_data = pd.read_csv("../data/euro_countries_filled.csv", index_col=0)
+raw_euro_data = pd.read_csv("data/euro_countries_filled.csv", index_col=0)
 euro_data = raw_euro_data.copy(deep=True)
 euro_data["date"] = euro_data["date"].apply(date_to_number)
 euro_data = euro_data[euro_data["date"] <= date_to_number(end_date)]
@@ -136,14 +136,14 @@ history = model.fit(
     # 1 Batch for each country so weights are updated after each country is processed
     batch_size=(date_to_number(end_date) - date_to_number(start_date) + 1),
     validation_data=(test_x, test_y),
-    verbose=0,
+    verbose=2,
     shuffle=False
 )
 # Plot history
 plt.plot(history.history['loss'], label='train')
 plt.plot(history.history['val_loss'], label='test')
 plt.legend(["Training loss", "Validation loss"])
-plt.savefig("training_loss.png")
+plt.savefig("plots/lstm/training_loss.png")
 
 # Evaluate model
 scaled_prediction = model.predict(test_x)
@@ -227,7 +227,7 @@ for code in iso_codes:
         plt.ylabel("Cases")
         plt.grid(True, "major", "y", color="grey", linewidth=0.2)
         plt.legend(["New cases (7-days smoothed)", "Recursive 7-day forecast"])
-        plt.savefig("plots/{:s}.png".format(code))
+        plt.savefig("plots/lstm/{:s}_pred.png".format(code))
         plt.clf()
 
         lstm_predictions["lstm_{:s}".format(code)] = pred_y
@@ -235,4 +235,4 @@ for code in iso_codes:
 total_rmse = sqrt(sum(country_mse_list) / len(country_mse_list))
 print("RMSE of entire test set: {:.2f}".format(total_rmse))
 
-lstm_predictions.to_csv("../predictions/lstm_predictions.csv")
+lstm_predictions.to_csv("predictions/lstm_predictions.csv")
