@@ -4,6 +4,7 @@ astunparse==1.6.3
 async-generator==1.10
 attrs==20.2.0
 backcall==0.2.0
+backports-datetime-fromisoformat==1.0.0
 bleach==3.2.1
 cached-property==1.5.2
 cachetools==4.1.1
@@ -49,7 +50,7 @@ nbconvert==6.0.7
 nbformat==5.0.8
 nest-asyncio==1.4.2
 notebook==6.1.4
-numpy==1.19.2
+numpy==1.18.5
 oauthlib==3.1.0
 opt-einsum==3.3.0
 packaging==20.4
