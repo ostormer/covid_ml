@@ -10,7 +10,7 @@ As part of the project we have created an LSTM deep learning model, an ensemble 
 ## Report and podcast
 A project report was written as part of the project, and can be found here: [`report_link`](report_link.pdf). <!-- TODO: upload report and update link! -->
 
-We also recorded a podcast, which can be found in [`podcast/ML-Podcast.m4a`](podcast/ML-Podcast.m4a)
+We also recorded a podcast, which can be found in [`podcast_report/ML-Podcast.m4a`](podcast_report/ML-Podcast.m4a)
 
 ## Installation guide
 To pip install all required python packages to run the project, open a terminal window, optionally set up a v-env, and run the command:
