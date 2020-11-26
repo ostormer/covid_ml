@@ -1,4 +1,4 @@
-# COVID-19 Machine Learning Project
+# Forecasting COVID-19 With Machine Learning
 
 ## Description
 Machine Learning project forecasting development of COVID-19 i European countries.
